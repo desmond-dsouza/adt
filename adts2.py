@@ -1,13 +1,11 @@
 from collections import namedtuple
 
-def merge_into(dict1, dict2):
-    return {k:v for d in (dict1, dict2) for k, v in d.items()}
-
-def Record(*slots_with_types):
+def Attrs(*slots_with_types):
     slots = tuple( 
         [s_t[0] if isinstance(s_t, tuple) else s_t for s_t in slots_with_types])
-    tuplebase = namedtuple("_".join(slots), slots)
+    tuplebase = namedtuple("_".join(slots) + "_Record", slots)
     base_eq = getattr(tuplebase, '__eq__')
+    base_replace = getattr(tuplebase, '_replace')
 
     def repr(self):
         vals = ','.join(str(getattr(self, x)) for x in slots)
@@ -18,233 +16,189 @@ def Record(*slots_with_types):
 
     setattr(tuplebase, '__repr__', repr)
     setattr(tuplebase, '__eq__', eq)
+    setattr(tuplebase, '__call__', base_replace)
 
     tuplebase.__annotations__ = slots_with_types
     return tuplebase
 
-##### tests
+def singleton(cls):
+    setattr(cls, 'is_singleton', True)
+    return cls
 
-class Person(Record(('name', str), ('age', int))):
-    def walk(self): return "Walk"
-
-p = Person('bob', 22)
-assert str(p) == 'Person(bob,22)'
-assert p == Person('bob', 22)
-assert not p == ('bob', 22)
-assert p._replace(age=p.age + 1) == Person('bob',23)
-assert Person.__annotations__ == (('name', str), ('age', int))
-
-##### end tests
-
-### HACK: to allow __bases__ to be assigned http://goo.gl/XkbBv3
-class Variant(object): pass
-# class object(object): pass
-
-class Union(type):
+class _Union(type):
     def __init__(self, name, bases, attrs):
-        # def variant(v):
-        #     return type(v.__name__, tuple(list(v.__bases__) + [self]), dict(v.__dict__))
-        # self.variants = [variant(v) for k, v in attrs.items() if isinstance(v, type)]
-        # for v in self.variants: 
-        #     setattr(self, v.__name__, v)
-        ## super(Meta, self).__init__(name, bases, attrs)
         for k, v in attrs.items(): 
             if isinstance(v, type): 
-                v.__bases__ = tuple(list(v.__bases__) + [self])
+                if v.__bases__ == (object,) and not hasattr(v, 'is_singleton'):
+                    raise Exception("Must be Record or @singleton")
+                if hasattr(v, 'is_singleton'):
+                    if v.__bases__ != (object,):
+                        raise Exception("@singleton cannot have base class")
+                    kls = type(k, (v, self), {'__repr__': lambda self, k=k: k })
+                    setattr(self, k, kls())
+                else: 
+                    v.__bases__ = tuple(list(v.__bases__) + [self])
 
-class Shape(metaclass=Union):
-    def shared(self): return "I am a Shape"
+class Union(metaclass=_Union): pass
 
-    class Rect(Record(('x', int), ('y', int))):
-        def area(self): return self.x * self.y
-        def peri(self): return 2 * (self.x + self.y)
+if __name__ == '__main__':
 
-    class Circle(Record('r')):
-        import math
-        def area(self): return math.pi * self.r * self.r
-        def peri(self): return 2 * math.pi * self.r
+    ### Tests & Examples of Use
 
-Rect = Shape.Rect
-Circle = Shape.Circle
+    import typing as T
 
-r = Rect(10, 20)
-c = Circle(20)
+    ## Single Record Type
+    class Person(Attrs(
+            ('name', str),
+            ('age', int),
+            ('cities', T.List[str]))):
+        def walk(self):
+            return "Walk"
 
-assert isinstance(r, Shape)
-assert isinstance(r, Shape.Rect)
-assert not isinstance(c, Shape.Rect)
-isinstance(0, Shape.Circle)
-assert isinstance(Circle(4), Shape)
-assert r.shared() == "I am a Shape"
-assert r.area() == 200
-assert str(Shape.Rect(4,5))  == "Rect(4,5)"
-assert Rect.__annotations__ == (('x', int), ('y', int))
+    p = Person('bob', 22, ['austin', 'dallas'])
+    assert p == Person('bob', 22, ['austin', 'dallas'])
+    assert p(age=p.age + 1) == Person('bob', 23, ['austin', 'dallas'])
+    assert str(p) == "Person(bob,22,['austin', 'dallas'])"
 
-## Enum only allows enumerated values
-from enum import Enum
-class IntColor(Enum):
-    Red = 1
-    Blue = 2
-    Green = 3
+    ## Nested Records
+    class Club(Attrs(
+                ('name', str), ('members', T.List[Person]))):
+        def foo(self):
+            pass
 
-## Enum values 
-## - can be structured
-## - enum values will pass isinstance 
-## - freely created values will NOT pass isinstance (even if equal to enum value)
-class RGB(Record('r','g', 'b')):
-    pass
+    s = Club('Soccer', [p, p(name='Chris')])
+    assert str(s) == "Club(Soccer,[Person(bob,22,['austin', 'dallas']), Person(Chris,22,['austin', 'dallas'])])"
 
-class StructuredColor(Enum):
 
-    Red = RGB(1,0,0)
-    Blue = RGB(0,1,0)
-    Green = RGB(0,0,1)
+    ## Union of 2 record types with unique + shared methods
+    class Shape(Union):
+        def shared(self): return "I am a Shape"
 
-assert isinstance(StructuredColor.Red, StructuredColor)
-assert not isinstance(RGB(0,0,0), StructuredColor)
-assert not isinstance(RGB(1,0,0), StructuredColor)
+        class Rect(Attrs(
+                ('x', int),
+                ('y', int))):
+            def area(self): return self.x * self.y
+            def peri(self): return 2 * (self.x + self.y)
 
-## Union can have both enumerated values (normal class attrs) & free Constructors
-class ColorUnion(metaclass=Union):
+        class Circle(Attrs(
+                ('r', int))):
+            def area(self): return 3.14 * self.r * self.r
+            def peri(self): return 2 * 3.14 * self.r
 
-    class RGB2(Record('r', 'g', 'b')):
+    Rect = Shape.Rect
+    Circle = Shape.Circle
+
+    r = Rect(10, 20)
+    c = Circle(20)
+
+    assert isinstance(r, Shape)
+    assert isinstance(r, Rect)
+    assert not isinstance(r, Circle)
+    assert isinstance(c, Shape)
+    assert r.shared() == "I am a Shape"
+    assert r.area() == 200
+    assert str(Rect(4,5))  == "Rect(4,5)"
+    assert Rect.__annotations__ == (('x', int), ('y', int))
+
+    ## Just for comparison: Python 3.4 has built-in Enum
+    ## It only allows enumerated values
+    from enum import Enum
+    class IntColor(Enum):
+        Red = 1
+        Blue = 2
+        Green = 3
+
+    ## Enum values can be structured objects, isinstance will work for those values
+    ## - freely created values will NOT pass isinstance (even if equal to enum value)
+    class RGB(Attrs('r','g', 'b')):
         pass
 
-    Red = RGB2(1,0,0)
-    Blue = RGB2(0,1,0)
-    Green = RGB2(0,0,1)
+    class StructuredColor(Enum):
+        Red = RGB(1,0,0)
+        Blue = RGB(0,1,0)
+        Green = RGB(0,0,1)
 
-assert isinstance(ColorUnion.RGB2(0,0,0), ColorUnion)
-print(ColorUnion.Red)
-assert isinstance(ColorUnion.Red, ColorUnion)
-assert isinstance(ColorUnion.RGB2(2,3,4), ColorUnion)
+    assert isinstance(StructuredColor.Red, StructuredColor)
+    assert not isinstance(RGB(0,0,0), StructuredColor)
+    assert not isinstance(RGB(1,0,0), StructuredColor)
 
-## or, more convincingly
-class LL(metaclass=Union):
-    class Cons(Record('h', 'tl')):
-        def len(self):
-            return 1 + self.tl.len()
+    ## Union can have both open Constructors & selected values (normal class attrs)
+    class ColorUnion(Union):
 
-    class Empty:
-        def len(self):
-            return 0
-    
+        class RGB2(Attrs('r', 'g', 'b')):
+            pass
 
+        Red = RGB2(1,0,0)
+        Blue = RGB2(0,1,0)
+        Green = RGB2(0,0,1)
 
-# if __name__ == '__main__':
+    assert isinstance(ColorUnion.RGB2(0,0,0), ColorUnion)
+    assert isinstance(ColorUnion.Red, ColorUnion)
+    assert isinstance(ColorUnion.RGB2(2,3,4), ColorUnion)
+    assert str(ColorUnion.Green) == "RGB2(0,0,1)"
 
-import typing as T 
+    ## Unions can contain @singletons defined as classes with methods (but no Record fields)
+    ## - the singleton becomes an instance, its class gets custom __bases__ and __repr__
 
-Age = int
+    ## List = Empty | Cons(h, tl)
+    class List(Union):
 
-def bar(self: 'Person', y: int):
-    return self.age - y
+        def isList(self): return True
 
-# Stand-alone Type with some methods
-Person = Type('Person',
-              ('name', str),
-              ('age', Age),
-              ('city', T.List[str]),
-              ## TODO: BAH!! cannot put type annotations on lambda
-              foo=lambda self, x: x + self.age,
-              bar=bar)
+        class Cons(Attrs('hd', 'tl')):
+            def len(self):
+                return 1 + self.tl.len()
 
-def Fields(*a): return object
+        @singleton
+        class Empty:
+            def len(self):
+                return 0
 
-class Persons(Fields(
-    ('name', str),
-    ('age', int),
-    ('cities', T.List[str]))):
-  def foo(self, x: int) -> int:
-    return x + self.age
-  def bar(self, y: int) -> int:
-    return self.age - y
+    Cons = List.Cons
+    E = List.Empty
 
-# class Persons(Fields(
-#     ('name', str),
-#     ('age', int),
-#     ('cities', T.List[str])
-#     )):
-#   def foo(self, x: int) -> int:
-#     return x + self.age
-#   def bar(self, y: int) -> int:
-#     return self.age - y
+    l2 = Cons(2, Cons(3, E))
+    assert str(E) == "Empty"
+    assert l2.isList()
+    assert l2.len() == 2
+    assert isinstance(l2, List)
+    assert isinstance(l2, Cons)
+    assert isinstance(E, List)
+    assert not isinstance(E, Cons)
 
+    ## A pattern-matching MAP over List
+    def map(f: T.Function, l: T.List) -> T.List:
+        if l == List.Empty:
+            return List.Empty
+        elif isinstance(l, List.Cons):
+            return Cons(f(l.hd), map(f, l.tl))
+        else: raise Exception("Not in List Union")
 
+    assert map(lambda x: x + 1, l2) == Cons(3, Cons(4, E))
 
+    ### Peano Arithmetic example
+    class Num(Union):
 
-p = Person('bob', 22, 'austin')
+        class S(Attrs('n')):
+            def __add__(self, x):
+                return self.n + S(x)
 
-# test equality, repr, annotations, & methods
-assert p == Person('bob', 22, 'austin')
-assert str(p) == 'Person(bob,22,austin)'
-assert p.__annotations__ == (('name', str), ('age', int), ('city', list))
-assert p.foo(2) == 24
-assert p.bar(2) == 20
-bar = p.bar
-assert bar(2) == 20
+        @singleton
+        class Z:
+            def __add__(self, x):
+                return x
 
-# test record update
-p2 = p(age=p.age + 1)
-assert p2 == Person('bob', 23, 'austin')
-assert p == Person('bob', 22, 'austin')
+    S = Num.S
+    Z = Num.Z
 
-p3 = p._replace(age=p.age + 5)
-assert p3 == Person('bob', 27, 'austin')
-
-# test type with custom __call__ method overrides record update operator
-T = Type('T',__call__=lambda self, *x, **k: 42)
-t = T()
-assert t(w='whatever') == 42
-
-## List = Empty | Cons(a, List(a))
-# Union (with shared method)
-# of 1 Singleton (Empty) and 1 Variant (Cons) with unique map() and len()
-List = Union('List', isList=lambda self: True)
-E = Singleton(List, "empty",
-    len=lambda self: 0,
-    map=lambda self, f: E)
-Cons = Variant(List, 'Cons', 'hd', 'tl',
-                   len=lambda self: 1 + self.tl.len(),
-                   map=lambda self, f: Cons(f(self.hd), self.tl.map(f)))
-l2 = Cons(2, Cons(3, E))
-assert str(E) == "empty"
-assert l2.isList()
-assert l2.len() == 2
-assert l2.map(lambda x: x * x) == Cons(4, Cons(9, E))
-assert isinstance(l2, List)
-assert isinstance(l2, Cons)
-assert isinstance(E, List)
-assert not isinstance(E, Cons)
-
-
-# Union with shared method & 1 Variant with method
-Shape = Union('Shape',
-                  show=lambda self: "Shape"
-                  )
-
-Rect = Variant(Shape, 'Rect', 'w', 'h',
-                   area=lambda self: self.w * self.h
-                   )
-
-r = Rect(5, 10)
-assert r.show() == "Shape"
-assert r.area() == 50
-
-### Peano
-Num = Union("Num")
-Z = Singleton(Num, "0",
-    __add__=lambda self, x: x)
-S = Variant(Num, "S", 'n',
-    __add__=lambda self, x: self.n + S(x))
-
-_1 = S(Z)
-_2 = S(_1)
-_3 = S(_2)
-assert _3 == S(S(S(Z)))
-assert Z + S(Z) == S(Z)
-assert _1 + _2 == _3
-assert _2 + _1 == _3
+    _1 = S(Z)
+    _2 = S(_1)
+    _3 = S(_2)
+    assert str(Z) == "Z"
+    assert _3 == S(S(S(Z)))
+    assert Z + S(Z) == S(Z)
+    assert _1 + _2 == _3
+    assert _2 + _1 == _3
 
 
 
