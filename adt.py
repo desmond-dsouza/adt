@@ -23,14 +23,14 @@ def Struct(*slots_with_types):
     tuplebase.__is_struct__ = True
     return tuplebase
 
-class Singleton:
+class Singleton(Struct()):
     @staticmethod
     def __new__(cls):
-        if hasattr(cls, '__the__'):
-            return getattr(cls, '__the__')
+        if hasattr(cls, '__instance__'):
+            return getattr(cls, '__instance__')
         else:
-            cls.__the__ = object.__new__(cls)
-            return cls.__the__
+            cls.__instance__ = tuple.__new__(cls)
+            return cls.__instance__
 
     def __repr__(self):
         return type(self).__name__ + "()"

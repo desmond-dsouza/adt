@@ -2,7 +2,7 @@
 ### Tests & Examples of Use
 
 from adt import Struct, Singleton, Union
-import typing as T
+import diy_typing as T
 
 ### ################################################
 ## Simple Struct Type
@@ -141,15 +141,15 @@ def test_list_cons_empty():
 
 ## A pattern-matching MAP over List
 def test_pattern_match_over_list():
-    def map(f: T.Function, l: List) -> List:
+    def mmap(f: T.Function, l: List) -> List:
         if isinstance(l, Empty):
             return E
         elif isinstance(l, Cons):
-            return Cons(f(l.hd), map(f, l.tl))
+            return Cons(f(l.hd), mmap(f, l.tl))
         else: raise Exception("Not in List Union")
 
     l2 = Cons(2, Cons(3, E))
-    assert map(lambda x: x + 1, l2) == Cons(3, Cons(4, E))
+    assert mmap(lambda x: x + 1, l2) == Cons(3, Cons(4, E))
 
 ### Peano Arithmetic example
 ### ################################################
