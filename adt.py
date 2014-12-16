@@ -17,7 +17,7 @@ def Struct(*slots_with_types):
 
     setattr(tuplebase, '__repr__', rep)
     setattr(tuplebase, '__eq__', eq)
-    setattr(tuplebase, 'whose', base_replace)
+    setattr(tuplebase, 'with_', base_replace)
 
     tuplebase.__annotations__ = slots_with_types
     tuplebase.__is_struct__ = True
@@ -60,7 +60,7 @@ if __name__ == '__main__':
             return self.name
 
     p1 = Person('joe', 22, [], [])
-    p2 = p1.whose(name='steve')
+    p2 = p1.with_(name='steve')
     assert p1 == Person('joe', 22, [], [])
     assert p2 == Person('steve', 22, [], [])
 

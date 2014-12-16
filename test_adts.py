@@ -18,7 +18,7 @@ p = Person('bob', 22, ['austin', 'dallas'])
 
 def test_equality_update_repr():
     assert p == Person('bob', 22, ['austin', 'dallas'])
-    assert p.whose(age=p.age + 1) == Person('bob', 23, ['austin', 'dallas'])
+    assert p.with_(age=p.age + 1) == Person('bob', 23, ['austin', 'dallas'])
     assert str(p) == "Person(bob,22,['austin', 'dallas'])"
 
 ### ################################################
@@ -33,7 +33,7 @@ def test_nested_struct():
         def foo(self):
             pass
 
-    s = Club('Soccer', [p, p.whose(name='Chris')])
+    s = Club('Soccer', [p, p.with_(name='Chris')])
     assert str(s) == "Club(Soccer,[Person(bob,22,['austin', 'dallas']), Person(Chris,22,['austin', 'dallas'])])"
 
 ### ################################################
@@ -232,7 +232,7 @@ def test_elm_graphics():
     assert f == Form(0,1,0,0,1,FShape(Fill(Solid(Color.Red)),s))
 
     def movex(dx: int, f: Form) -> Form:
-        return f.whose(x=f.x + dx)
+        return f.with_(x=f.x + dx)
 
     f2 = movex(20, f)
     assert f2 == Form(0,1,20,0,1,FShape(Fill(Solid(Color.Red)),s))
