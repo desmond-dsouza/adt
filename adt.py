@@ -1,5 +1,5 @@
 from collections import namedtuple
-from typing import Union
+from diy_typing import Union
 
 def Struct(*slots_with_types):
     slots = tuple( 
@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
     ### ##### Examples of Use (see tests for more details) #####
 
-    import typing as T
+    import diy_typing as T
 
     ### ##########################################
     ### Simple structures, with or without methods
