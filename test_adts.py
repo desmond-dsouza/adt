@@ -155,6 +155,8 @@ def test_pattern_match_over_list():
 ### ################################################
 ### Num = Zero | S(n)
 
+Num = Union['Zero', 'S(n)']
+
 class S(Struct('n')):
     def __add__(self, x):
         return self.n + S(x)
@@ -187,7 +189,6 @@ class Form(Struct(
     'form')):
     pass
 
-######
 class Solid(Struct('color')): pass
 class Texture(Struct('url')): pass
 class Grad(Struct('gradient')): pass

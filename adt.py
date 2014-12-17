@@ -69,6 +69,8 @@ if __name__ == '__main__':
     ###  List = Empty() | Cons(hd, tl)
     ### ##########################################
 
+    List = Union['Empty', 'Cons(hd,tl)']
+
     class Empty(Singleton):
         def len(self):
             return 0
@@ -79,8 +81,6 @@ if __name__ == '__main__':
         def len(self):
             return 1 + self.tl.len()
 
-    List = Union[Empty, Cons]
-
     l1 = Cons(1, Cons(2, E))
     assert l1.len() == 2
 
@@ -88,6 +88,11 @@ if __name__ == '__main__':
     ### external function over a Union
     ### map(f: T.Function, l: List) -> List
 
+    from diy_typing import sig, List, Function, T1, T2
+
+    @sig(f=Function[T1, T2],
+         l=List[T1],
+         result_=List[T2])
     def map(f, l):
         if isinstance(l, Cons):
             return Cons(f(l.hd), map(f, l.tl))

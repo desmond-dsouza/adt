@@ -51,6 +51,15 @@ class TypeConstructor(object):
         return "%s[%s]" % (self.name,
                            "*" if self.arity == "*" else ", ".join("_" for n in range(self.arity)))
 
+
+### Python 2.x using @sig decorator
+def sig(**kw):
+    ## should also add @wraps etc.
+    def type_annotater(f):
+        f.__annotations__ = {('return' if k == 'return_' else k): v for k, v in kw.items()}
+        return f
+    return type_annotater
+
 Any = object
 List = TypeConstructor('List', base=list, arity=1)
 Iterable = TypeConstructor('Iterable', base=object, arity=1)
@@ -122,15 +131,7 @@ if __name__ == '__main__':
     # assert f_py3.__annotations__ == {'x': int, 'y': List[int], 'return': int}
     # assert f_py3(1, [2, 3]) == 6
 
-    ### Python 2.x using @typing decorator
-    def typing(**kw):
-        ## should also add @wraps etc.
-        def type_annotater(f):
-            f.__annotations__ = {('return' if k == 'return_' else k): v for k, v in kw.items()}
-            return f
-        return type_annotater
-
-    @typing(x=int, y=List[int], return_=int)
+    @sig(x=int, y=List[int], return_=int)
     def f_py2(x, y):
         return x + sum(y)
 
