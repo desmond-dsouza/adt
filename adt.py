@@ -1,35 +1,37 @@
 from collections import namedtuple
-from diy_typing import Union
 
 def Struct(*slots_with_types):
+    if len(slots_with_types)==1 and isinstance(slots_with_types[0], str):
+    	slots_with_types = slots_with_types[0].split()
     slots = tuple( 
         [s_t[0] if isinstance(s_t, tuple) else s_t for s_t in slots_with_types])
-    tuplebase = namedtuple("_".join(slots) + "_Record", slots)
-    base_eq = getattr(tuplebase, '__eq__')
-    base_replace = getattr(tuplebase, '_replace')
-
+    
+    struct_type = namedtuple("_".join(slots) + "_Record", slots)
+    base_eq = getattr(struct_type, '__eq__')
+    base_replace = getattr(struct_type, '_replace')
+    
     def rep(self):
         vals = ','.join(str(getattr(self, x)) for x in slots)
         return "%s(%s)" % (type(self).__name__, vals)
-
+    
     def eq(self, other):
         return type(self) == type(other) and base_eq(self, other)
+    
+    setattr(struct_type, '__repr__', rep)
+    setattr(struct_type, '__eq__', eq)
+    setattr(struct_type, 'with_', base_replace)
+    
+    struct_type.__annotations__ = slots_with_types
+    struct_type.__is_struct__ = True
+    return struct_type
 
-    setattr(tuplebase, '__repr__', rep)
-    setattr(tuplebase, '__eq__', eq)
-    setattr(tuplebase, 'with_', base_replace)
-
-    tuplebase.__annotations__ = slots_with_types
-    tuplebase.__is_struct__ = True
-    return tuplebase
-
-class Singleton(Struct()):
+class Singleton(object):
     @staticmethod
     def __new__(cls):
         if hasattr(cls, '__instance__'):
             return getattr(cls, '__instance__')
         else:
-            cls.__instance__ = tuple.__new__(cls)
+            cls.__instance__ = object.__new__(cls)
             return cls.__instance__
 
     def __repr__(self):
@@ -39,7 +41,7 @@ if __name__ == '__main__':
 
     ### ##### Examples of Use (see tests for more details) #####
 
-    import diy_typing as T
+    from diy_typing import sig, List, Union, Function, Any, T1, T2
 
     ### ##########################################
     ### Simple structures, with or without methods
@@ -53,23 +55,24 @@ if __name__ == '__main__':
         Struct(
             ('name', str),
             'age',
-            ('cities', T.List[City]),
-            ('friends', T.List['Person']))):
+            ('cities', List[City]),
+            ('friends', List['Person']))):
 
         def describe(self):
             return self.name
 
     p1 = Person('joe', 22, [], [])
+    assert p1.describe() == 'joe'
     p2 = p1.with_(name='steve')
     assert p1 == Person('joe', 22, [], [])
     assert p2 == Person('steve', 22, [], [])
 
     ### ##########################################
-    ###  Union, including Singleton
-    ###  List = Empty() | Cons(hd, tl)
+    ###  Union, including Singleton & methods
+    ###  LList = Empty() | Cons(hd, tl)
     ### ##########################################
 
-    List = Union['Empty', 'Cons(hd,tl)']
+    LList = Union['Empty', 'Cons']
 
     class Empty(Singleton):
         def len(self):
@@ -77,7 +80,9 @@ if __name__ == '__main__':
 
     E = Empty()
 
-    class Cons(Struct('hd', 'tl')):
+    class Cons(Struct(
+                      ('hd', Any),
+                      ('tl', LList))):
         def len(self):
             return 1 + self.tl.len()
 
@@ -86,13 +91,8 @@ if __name__ == '__main__':
 
     ### ##########################################
     ### external function over a Union
-    ### map(f: T.Function, l: List) -> List
 
-    from diy_typing import sig, List, Function, T1, T2
-
-    @sig(f=Function[T1, T2],
-         l=List[T1],
-         result_=List[T2])
+    @sig(f=Function, l=LList, return_=LList)
     def map(f, l):
         if isinstance(l, Cons):
             return Cons(f(l.hd), map(f, l.tl))

@@ -51,8 +51,7 @@ class TypeConstructor(object):
         return "%s[%s]" % (self.name,
                            "*" if self.arity == "*" else ", ".join("_" for n in range(self.arity)))
 
-
-### Python 2.x using @sig decorator
+### Python 2.x using @typing decorator
 def sig(**kw):
     ## should also add @wraps etc.
     def type_annotater(f):
