@@ -1,6 +1,17 @@
 from collections import namedtuple
 
+## TODO: add mixin classes:
+# copy over slots
+# copy over local methods (catch conflicts): inspect.getmembers(Klass, predicate=inspect.ismethod)
+
 def Struct(*slots_with_types):
+    '''Returns a new (namedtuple) type. slots_with_types can be:
+    (a) 2-tuple:            ('name', str), ('friends', List[Person])
+    (b) just a slot name:   'age'
+    (c) a single string:    'name age eye_color'
+    Defines custom string(__repr__), equality(__eq__), and copy-with-update (with_) methods.
+    '''
+    slots_with_types = tuple([st for st in slots_with_types if not isinstance(st, type)])
     if len(slots_with_types)==1 and isinstance(slots_with_types[0], str):
     	slots_with_types = slots_with_types[0].split()
     slots = tuple( 

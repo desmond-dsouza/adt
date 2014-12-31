@@ -1,7 +1,8 @@
 ### ####################################################
 ### Tests & Examples of Use
 
-from adt import Struct, Singleton, Union
+from adt import Struct, Singleton
+from typing import Union
 import diy_typing as T
 
 ### ################################################
@@ -35,6 +36,8 @@ def test_nested_struct():
 
     s = Club('Soccer', [p, p.with_(name='Chris')])
     assert str(s) == "Club(Soccer,[Person(bob,22,['austin', 'dallas']), Person(Chris,22,['austin', 'dallas'])])"
+    s2 = s.with_(members=s.members + [Person('joe',99,[])])
+    assert s2 == Club('Soccer', [p, p.with_(name='Chris'), Person('joe',99,[])])
 
 ### ################################################
 ### Plain Union of 2 Structures
@@ -175,6 +178,13 @@ def test_peano():
     assert Z + S(Z) == S(Z)
     assert _1 + _2 == _3
     assert _2 + _1 == _3
+
+### Struct Extension, mixin-methods, and conflicts
+def test_struct_extension():
+    class A(Struct('x')): pass
+    class B(Struct('y')): pass
+    # class C(Struct(A, B, 'p q')): pass
+
 
 ### ################################################
 ### Elm Collage -- selected bits
