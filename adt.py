@@ -5,15 +5,15 @@ from collections import namedtuple
 # copy over local methods (catch conflicts): inspect.getmembers(Klass, predicate=inspect.ismethod)
 
 def Struct(*slots_with_types):
-    '''Returns a new (namedtuple) type. slots_with_types can be:
-    (a) 2-tuple:            ('name', str), ('friends', List[Person])
-    (b) just a slot name:   'age'
-    (c) a single string:    'name age eye_color'
+    """Returns a new (namedtuple) type. slots_with_types can be:
+    (a) 2-tuples with types:  ('name', str), ('friends', List[Person])
+    (b) just slot names:      'name', 'age'
+    (c) a single string:      'name age eye_color'
     Defines custom string(__repr__), equality(__eq__), and copy-with-update (with_) methods.
-    '''
+    """
     slots_with_types = tuple([st for st in slots_with_types if not isinstance(st, type)])
     if len(slots_with_types)==1 and isinstance(slots_with_types[0], str):
-    	slots_with_types = slots_with_types[0].split()
+        slots_with_types = slots_with_types[0].split()
     slots = tuple( 
         [s_t[0] if isinstance(s_t, tuple) else s_t for s_t in slots_with_types])
     
@@ -102,6 +102,8 @@ if __name__ == '__main__':
 
     ### ##########################################
     ### external function over a Union
+    ### @sig is for Python 2.7 (e.g. iPad Pythonista)
+    ###    for Python 3, just use:  def map(f: Functino, l: LList) -> LList:
 
     @sig(f=Function, l=LList, return_=LList)
     def map(f, l):
