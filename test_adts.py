@@ -1,9 +1,10 @@
 ### ####################################################
 ### Tests & Examples of Use
 
-from adt import Struct, Singleton
+from adt import Struct, Singleton, rule
 from typing import Union
 import diy_typing as T
+import pytest
 
 ### ################################################
 ## Simple Struct Type
@@ -21,6 +22,20 @@ def test_equality_update_repr():
     assert p == Person('bob', 22, ['austin', 'dallas'])
     assert p.with_(age=p.age + 1) == Person('bob', 23, ['austin', 'dallas'])
     assert str(p) == "Person(bob,22,['austin', 'dallas'])"
+
+### ################################################
+##  @rule checked on construction
+class Range(Struct('start end')):
+    @rule
+    def from_lessThan_to(self):
+        return self.start < self.end
+
+def test_rules():
+    r1 = Range(2, 3)
+    with pytest.raises(Exception):
+        r2 = Range(3, 2)
+    with pytest.raises(Exception):
+        r1.with_(end=1)
 
 ### ################################################
 ## Nested Struct Type

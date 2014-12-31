@@ -1,15 +1,18 @@
 from collections import namedtuple
 
-## TODO: add mixin classes:
-# copy over slots
-# copy over local methods (catch conflicts): inspect.getmembers(Klass, predicate=inspect.ismethod)
+## TODO: mixin classes: copy slots, use cls.__dict__ for methods (conflict-check)
+
+def rule(f):
+    f.__isrule__ = True
+    return f
 
 def Struct(*slots_with_types):
     """Returns a new (namedtuple) type. slots_with_types can be:
-    (a) 2-tuples with types:  ('name', str), ('friends', List[Person])
-    (b) just slot names:      'name', 'age'
-    (c) a single string:      'name age eye_color'
+    (a) 2-tuples with types:  ('name', str), ('friends', List[Person]), ...
+    (b) just slot names:      'name', 'age', ...
+    (c) a single string:      'name age eye_color ...'
     Defines custom string(__repr__), equality(__eq__), and copy-with-update (with_) methods.
+    Custom __init__ checks all @rule methods after instance construction & update.
     """
     slots_with_types = tuple([st for st in slots_with_types if not isinstance(st, type)])
     if len(slots_with_types)==1 and isinstance(slots_with_types[0], str):
@@ -21,16 +24,34 @@ def Struct(*slots_with_types):
     base_eq = getattr(struct_type, '__eq__')
     base_replace = getattr(struct_type, '_replace')
     
-    def rep(self):
+    def _repr(self):
         vals = ','.join(str(getattr(self, x)) for x in slots)
         return "%s(%s)" % (type(self).__name__, vals)
     
-    def eq(self, other):
+    def _eq(self, other):
         return type(self) == type(other) and base_eq(self, other)
-    
-    setattr(struct_type, '__repr__', rep)
-    setattr(struct_type, '__eq__', eq)
-    setattr(struct_type, 'with_', base_replace)
+
+    def _assert_valid(self):
+        cls_dict = type(self).__dict__
+        rules = [m for k, m in cls_dict.items() if hasattr(m, '__isrule__')]
+        failed = [r for r in rules if not r(self)]
+        if failed:
+            raise Exception("Rules violated: {0}".format(str(failed)))
+
+    def _with(self, *a, **k):
+        updated = base_replace(self, *a, **k)
+        updated._assert_valid()
+        return updated
+
+    def _init(self, *a, **k):
+        # no super().__init__ as namedtuple uses __new__ for initialization
+        self._assert_valid()
+
+    setattr(struct_type, '__repr__', _repr)
+    setattr(struct_type, '__eq__', _eq)
+    setattr(struct_type, 'with_', _with)
+    setattr(struct_type, '__init__', _init)
+    setattr(struct_type, '_assert_valid', _assert_valid)
     
     struct_type.__annotations__ = slots_with_types
     struct_type.__is_struct__ = True
