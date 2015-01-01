@@ -34,18 +34,19 @@ def Struct(*slots_with_types):
     def _assert_valid(self):
         cls_dict = type(self).__dict__
         rules = [m for k, m in cls_dict.items() if hasattr(m, '__isrule__')]
-        failed = [r for r in rules if not r(self)]
+        failed = [k for k, m in cls_dict.items() if hasattr(m, '__isrule__') and
+                  not m(self)]
         if failed:
-            raise Exception("Rules violated: {0}".format(str(failed)))
+            raise Exception("{0} rules violated: {1}".format(self, str(failed)))
+
+    def _init(self, *a, **k):
+        # no super().__init__ as namedtuple uses __new__ for initialization
+        self._assert_valid()
 
     def _with(self, *a, **k):
         updated = base_replace(self, *a, **k)
         updated._assert_valid()
         return updated
-
-    def _init(self, *a, **k):
-        # no super().__init__ as namedtuple uses __new__ for initialization
-        self._assert_valid()
 
     setattr(struct_type, '__repr__', _repr)
     setattr(struct_type, '__eq__', _eq)
@@ -124,7 +125,7 @@ if __name__ == '__main__':
     ### ##########################################
     ### external function over a Union
     ### @sig is for Python 2.7 (e.g. iPad Pythonista)
-    ###    for Python 3, just use:  def map(f: Functino, l: LList) -> LList:
+    ###    for Python 3:  def map(f: Function, l: LList) -> LList:
 
     @sig(f=Function, l=LList, return_=LList)
     def map(f, l):
