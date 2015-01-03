@@ -1,3 +1,5 @@
+# TODO: Refine(List[Person], list_checker) -> RefinementType with check_instance functionality
+
 class ParameterizedType(type):
     """An instance of ParameterizedType is a proper type, corresponding to a TypeConstructor after 
     all its parameters are filled in, and capable of check() on any object x. It has:
@@ -11,6 +13,7 @@ class ParameterizedType(type):
         return "%s[%s]" % (cls.__name__, ', '.join((str(t) if isinstance(t, ParameterizedType) \
             else (t.__name__ if hasattr(t, '__name__') else str(t)) for t in cls.args)))
 
+    # TODO: uniform check_instance protocol for PTypes, List/Union/Dict etc., Struct, RefinementTypes
     def check(cls, x):
         """Could not find a way to hook into Python's isinstance() checks, so just left this 
         as separate method."""
@@ -43,7 +46,7 @@ class TypeConstructor(object):
                              (self.base,),
                              {'args': args_tuple,
                               'base': self.base,
-                              'checker': (self.checker,)}) # hack: put into tuple to subvert 2.7 unbound method rubbish
+                              'checker': (self.checker,)}) # hack: tuple to work-around 2.7 unbound methods checks
             ParameterizedType.registry[registry_key] = t
             return t
 

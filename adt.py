@@ -6,6 +6,9 @@ def rule(f):
     f.__isrule__ = True
     return f
 
+# TODO: Refine(Person, age_checker) -> RefinementType with check_instance functionality
+# TODO: type check constructor args, perhaps simply in _assert_valid()
+
 def Struct(*slots_with_types):
     """Returns a new (namedtuple) type. slots_with_types can be:
     (a) 2-tuples with types:  ('name', str), ('friends', List[Person]), ...
@@ -37,7 +40,7 @@ def Struct(*slots_with_types):
         failed = [k for k, m in cls_dict.items() if hasattr(m, '__isrule__') and
                   not m(self)]
         if failed:
-            raise Exception("{0} rules violated: {1}".format(self, str(failed)))
+            raise RuleFailed("{0} rules violated: {1}".format(self, str(failed)))
 
     def _init(self, *a, **k):
         # no super().__init__ as namedtuple uses __new__ for initialization
@@ -58,6 +61,9 @@ def Struct(*slots_with_types):
     struct_type.__is_struct__ = True
     return struct_type
 
+class RuleFailed(Exception):
+    pass
+
 class Singleton(object):
     @staticmethod
     def __new__(cls):
@@ -74,10 +80,10 @@ if __name__ == '__main__':
 
     ### ##### Examples of Use (see tests for more details) #####
 
-    from diy_typing import sig, List, Union, Function, Any, T1, T2
+    from diy_typing import sig, List, Union, Function, Any
 
     ### ##########################################
-    ### Simple structures, with or without methods
+    ### Simple structures, optional methods, @rules
     ### ##########################################
     class City(Struct('name')):
         pass
@@ -94,11 +100,22 @@ if __name__ == '__main__':
         def describe(self):
             return self.name
 
+        @rule
+        def max_100_age(self):
+            return self.age < 100
+
     p1 = Person('joe', 22, [], [])
     assert p1.describe() == 'joe'
     p2 = p1.with_(name='steve')
     assert p1 == Person('joe', 22, [], [])
     assert p2 == Person('steve', 22, [], [])
+
+    ### @rule checked on instance creation
+    try:
+        Person('bob', 101, [], [])
+        assert False, "Should have failed @rule"
+    except RuleFailed:
+        pass
 
     ### ##########################################
     ###  Union, including Singleton & methods
@@ -128,13 +145,13 @@ if __name__ == '__main__':
     ###    for Python 3:  def map(f: Function, l: LList) -> LList:
 
     @sig(f=Function, l=LList, return_=LList)
-    def map(f, l):
+    def mmap(f, l):
         if isinstance(l, Cons):
-            return Cons(f(l.hd), map(f, l.tl))
+            return Cons(f(l.hd), mmap(f, l.tl))
         elif l == E:
             return Empty()
         else: raise Exception()
 
-    assert map(lambda x: x+1, Cons(1, Cons(2, E))) == Cons(2, Cons(3, E))
+    assert mmap(lambda x: x+1, Cons(1, Cons(2, E))) == Cons(2, Cons(3, E))
 
 

@@ -1,7 +1,7 @@
 ### ####################################################
 ### Tests & Examples of Use
 
-from adt import Struct, Singleton, rule
+from adt import Struct, Singleton, rule, RuleFailed
 from typing import Union
 import diy_typing as T
 import pytest
@@ -24,17 +24,22 @@ def test_equality_update_repr():
     assert str(p) == "Person(bob,22,['austin', 'dallas'])"
 
 ### ################################################
-##  @rule checked on construction
+##  @rule checked on construction and on update
 class Range(Struct('start end')):
     @rule
     def from_lessThan_to(self):
         return self.start < self.end
 
 def test_rules():
+    # Range(2,3) should be legal
     r1 = Range(2, 3)
-    with pytest.raises(Exception):
+
+    # range(3,2) should not be a legal range i.e. raise Exception
+    with pytest.raises(RuleFailed):
         r2 = Range(3, 2)
-    with pytest.raises(Exception):
+
+    # range(2,3).with_(end=1) should not be a legal range
+    with pytest.raises(RuleFailed):
         r1.with_(end=1)
 
 ### ################################################
@@ -133,7 +138,7 @@ def test_enums():
 ## The singleton gets a custom __repr__
 
 ### ################################################
-## List = Empty | Cons(h, tl)
+## List = Empty | Cons(hd, tl)
 ### ################################################
 
 class Cons(Struct('hd', 'tl')):
